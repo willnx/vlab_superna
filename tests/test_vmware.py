@@ -79,6 +79,7 @@ class TestVMware(unittest.TestCase):
         with self.assertRaises(ValueError):
             vmware.delete_superna(username='bob', machine_name='myOtherSupernaBox', logger=fake_logger)
 
+    @patch.object(vmware.virtual_machine, 'block_on_boot')
     @patch.object(vmware.virtual_machine, 'configure_network')
     @patch.object(vmware.virtual_machine, 'set_meta')
     @patch.object(vmware, 'Ova')
@@ -86,7 +87,9 @@ class TestVMware(unittest.TestCase):
     @patch.object(vmware.virtual_machine, 'deploy_from_ova')
     @patch.object(vmware, 'consume_task')
     @patch.object(vmware, 'vCenter')
-    def test_create_superna(self, fake_vCenter, fake_consume_task, fake_deploy_from_ova, fake_get_info, fake_Ova, fake_set_meta, fake_configure_network):
+    def test_create_superna(self, fake_vCenter, fake_consume_task, fake_deploy_from_ova,
+                            fake_get_info, fake_Ova, fake_set_meta, fake_configure_network,
+                            fake_block_on_boot):
         """``create_superna`` returns a dictionary upon success"""
         fake_logger = MagicMock()
         fake_deploy_from_ova.return_value.name = 'mySuperna'

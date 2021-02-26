@@ -99,11 +99,17 @@ def create_superna(username, machine_name, image, network, ip_config, logger):
                                                      network_map=[network_map],
                                                      username=username,
                                                      machine_name=machine_name,
-                                                     logger=logger,
-                                                     power_on=False)
+                                                     logger=logger)
         finally:
             ova.close()
 
+        logger.info('Blocking while VM boots')
+        virtual_machine.block_on_boot(the_vm)
+        logger.info("Powering Off VM")
+        # We have to power on the VM initially for vSphere to know it has VMware Tools
+        # installed. Then we can power it off and configure the network.
+        virtual_machine.power(the_vm, state='off')
+        logger.info("Configuring Network")
         virtual_machine.configure_network(the_vm, ip_config)
         virtual_machine.power(the_vm, state='on')
         meta_data = {'component' : "Superna",
