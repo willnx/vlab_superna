@@ -80,7 +80,7 @@ class TestVMware(unittest.TestCase):
             vmware.delete_superna(username='bob', machine_name='myOtherSupernaBox', logger=fake_logger)
 
     @patch.object(vmware.virtual_machine, 'block_on_boot')
-    @patch.object(vmware.virtual_machine, 'configure_network')
+    @patch.object(vmware, 'add_unique_params')
     @patch.object(vmware.virtual_machine, 'set_meta')
     @patch.object(vmware, 'Ova')
     @patch.object(vmware.virtual_machine, 'get_info')
@@ -88,7 +88,7 @@ class TestVMware(unittest.TestCase):
     @patch.object(vmware, 'consume_task')
     @patch.object(vmware, 'vCenter')
     def test_create_superna(self, fake_vCenter, fake_consume_task, fake_deploy_from_ova,
-                            fake_get_info, fake_Ova, fake_set_meta, fake_configure_network,
+                            fake_get_info, fake_Ova, fake_set_meta, fake_add_unique_params,
                             fake_block_on_boot):
         """``create_superna`` returns a dictionary upon success"""
         fake_logger = MagicMock()
@@ -165,6 +165,22 @@ class TestVMware(unittest.TestCase):
         expected = '2.6.1'
 
         self.assertEqual(output, expected)
+
+    @patch.object(vmware, 'consume_task')
+    def test_add_unique_params(self, fake_consume_task):
+        """``add_unique_params`` Defines the vApp configs for Superna"""
+        fake_vm = MagicMock()
+        ip_config = {
+            'static-ip' : "1.2.3.4",
+            'default-gateway' : '1.2.3.1',
+            'netmask': '255.255.255.0',
+            'dns' : ['1.2.3.2'],
+            'domain' : 'vlab.local'
+        }
+
+        vmware.add_unique_params(fake_vm, ip_config)
+
+        self.assertTrue(fake_vm.ReconfigVM_Task.called)
 
 
 if __name__ == '__main__':

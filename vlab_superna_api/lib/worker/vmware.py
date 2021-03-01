@@ -99,19 +99,15 @@ def create_superna(username, machine_name, image, network, ip_config, logger):
                                                      network_map=[network_map],
                                                      username=username,
                                                      machine_name=machine_name,
-                                                     logger=logger)
+                                                     logger=logger,
+                                                     power_on=False)
         finally:
             ova.close()
 
-        logger.info('Blocking while VM boots')
-        virtual_machine.block_on_boot(the_vm)
-        logger.info("Powering Off VM")
-        # We have to power on the VM initially for vSphere to know it has VMware Tools
-        # installed. Then we can power it off and configure the network.
-        virtual_machine.power(the_vm, state='off')
-        logger.info("Configuring Network")
-        virtual_machine.configure_network(the_vm, ip_config)
+        logger.info("Setting vApp parameters")
+        add_unique_params(the_vm, ip_config)
         virtual_machine.power(the_vm, state='on')
+        virtual_machine.block_on_boot(the_vm)
         meta_data = {'component' : "Superna",
                      'created' : time.time(),
                      'version' : image,
@@ -146,3 +142,34 @@ def convert_name(name, to_version=False):
         return name.split('-')[-1].replace('.ova', '')
     else:
         return 'Superna_Eyeglass-{}.ova'.format(name)
+
+
+def add_unique_params(the_vm, ip_config):
+    """Superna cannot boot without some required network parameters configured.
+
+    :Returns: None
+
+    :param the_vm: The newly created Superna server.
+    :type the_vm: vim.VirtualMachine
+
+    :param ip_config: The IPv4 network configuration for the Avamar instance.
+    :type ip_config: Dictionary
+    """
+    vapp_spec = vim.vApp.VmConfigSpec()
+    mapping = {'eth0.ipv4.ip' : ip_config['static-ip'],
+               'eth0.ipv4.netmask' : ip_config['netmask'],
+               'eth0.ipv4.gateway' : ip_config['default-gateway'],
+               'hostname' : the_vm.name,
+               'nameservers' : ' '.join(ip_config['dns'])}
+    for prop in the_vm.config.vAppConfig.property:
+        if prop.id in mapping:
+            config = vim.vApp.PropertySpec()
+            config.operation = 'edit'
+            config.info = prop
+            config.info.value = mapping[prop.id]
+            vapp_spec.property.append(config)
+
+    spec = vim.vm.ConfigSpec()
+    spec.vAppConfig = vapp_spec
+    task = the_vm.ReconfigVM_Task(spec)
+    consume_task(task)
